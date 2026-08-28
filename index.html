@@ -155,7 +155,78 @@ select option{background:var(--surface);color:var(--text-bright)}
 .modal-box{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:28px;max-width:520px;width:90%;max-height:80vh;overflow-y:auto;animation:fadeIn 0.2s ease}
 .modal-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:18px}
 .modal-title{font-size:16px;font-weight:700;color:var(--text-bright)}
-.ai-response{font-size:13px;line-height:1.75;color:var(--accent);white-space:pre-wrap}
+.ai-response{
+  font-size:13px;
+  line-height:1.75;
+  color:#6EE7B7;
+  white-space:pre-wrap;
+}
+  .askai-history-item{
+  padding:13px 14px;
+  margin-bottom:8px;
+  border:1px solid var(--border);
+  border-radius:10px;
+  background:var(--surface-2);
+  cursor:pointer;
+  transition:all 0.18s ease;
+}
+
+.askai-history-item:hover{
+  border-color:var(--accent-deep);
+  background:rgba(21,54,75,0.8);
+  transform:translateY(-1px);
+}
+
+.askai-history-question{
+  font-size:12px;
+  font-weight:600;
+  color:var(--text-bright);
+  line-height:1.5;
+}
+
+.askai-history-question span{
+  color:var(--accent);
+}
+
+.askai-history-time{
+  font-size:10px;
+  color:var(--text-dim);
+  margin-top:5px;
+}
+
+.ai-chat-question,
+.ai-chat-answer{
+  margin-bottom:14px;
+}
+
+.ai-chat-label{
+  font-size:10px;
+  font-weight:700;
+  color:var(--text-dim);
+  text-transform:uppercase;
+  letter-spacing:0.06em;
+  margin-bottom:5px;
+}
+
+.ai-chat-bubble{
+  padding:11px 14px;
+  border-radius:10px;
+  font-size:13px;
+  line-height:1.7;
+  white-space:pre-wrap;
+}
+
+.question-bubble{
+  background:var(--surface-2);
+  border:1px solid var(--border);
+  color:var(--text-bright);
+}
+
+.answer-bubble{
+  background:rgba(56,189,248,0.08);
+  border:1px solid var(--border-soft);
+  color:var(--text-bright);
+}
 .shimmer-line{height:12px;border-radius:6px;background:linear-gradient(90deg,var(--surface-2) 25%,var(--border) 50%,var(--surface-2) 75%);background-size:200% 100%;animation:shimmer 1.5s infinite;margin-bottom:10px}
 .toast{position:fixed;bottom:24px;right:24px;background:var(--surface);border:1px solid var(--accent-deep);border-radius:10px;padding:12px 18px;font-size:13px;color:var(--text-bright);z-index:200;box-shadow:0 8px 32px rgba(0,0,0,0.5);display:none}
 .toast.show{display:block}
@@ -720,7 +791,17 @@ async function askAI(){
     const data=await res.json();
     if(!res.ok || data.error) throw new Error(data.error||"API error");
     const answer=data.text||"No answer returned.";
-    resultDiv.innerHTML=`<div class="ai-response">${answer}</div>`;
+    resultDiv.innerHTML=`
+  <div class="ai-chat-question">
+    <div class="ai-chat-label">You</div>
+    <div class="ai-chat-bubble question-bubble">${question}</div>
+  </div>
+
+  <div class="ai-chat-answer">
+    <div class="ai-chat-label">✦ AI</div>
+    <div class="ai-chat-bubble answer-bubble">${answer}</div>
+  </div>
+`;
     askaiHistory.unshift({q:question,a:answer,time:new Date().toLocaleString([], {month:"short",day:"numeric",hour:"2-digit",minute:"2-digit"})});
     if(askaiHistory.length>20) askaiHistory=askaiHistory.slice(0,20);
     save();
@@ -732,6 +813,60 @@ async function askAI(){
 }
 
 function renderAskAIHistory(){
+  const card=document.getElementById("askaiHistoryCard");
+  const list=document.getElementById("askaiHistory");
+
+  if(askaiHistory.length===0){
+    card.style.display="none";
+    return;
+  }
+
+  card.style.display="block";
+
+  list.innerHTML=askaiHistory.map((h,i)=>`
+    <div
+      class="askai-history-item"
+      onclick="openAIHistory(${i})"
+    >
+      <div class="askai-history-question">
+        <span>Q:</span> ${h.q}
+      </div>
+
+      <div class="askai-history-time">
+        ${h.time}
+      </div>
+    </div>
+  `).join("");
+}
+  function openAIHistory(index){
+  const h=askaiHistory[index];
+  if(!h)return;
+
+  const resultCard=document.getElementById("askaiResultCard");
+  const resultDiv=document.getElementById("askaiResult");
+  const input=document.getElementById("askaiInput");
+
+  resultCard.style.display="block";
+
+  input.value=h.q;
+
+  resultDiv.innerHTML=`
+    <div class="ai-chat-question">
+      <div class="ai-chat-label">You</div>
+      <div class="ai-chat-bubble question-bubble">${h.q}</div>
+    </div>
+
+    <div class="ai-chat-answer">
+      <div class="ai-chat-label">✦ AI</div>
+      <div class="ai-chat-bubble answer-bubble">${h.a}</div>
+    </div>
+  `;
+
+  resultCard.scrollIntoView({
+    behavior:"smooth",
+    block:"start"
+  });
+}
   const card=document.getElementById("askaiHistoryCard");
   const list=document.getElementById("askaiHistory");
   if(askaiHistory.length===0){card.style.display="none";return;}
@@ -820,11 +955,28 @@ function importData(event){
 }
 
 function clearAll(){
-  if(!confirm("Clear all sessions, tasks and mood history?")) return;
+  if(!confirm("Clear all sessions, tasks, mood history and Ask AI history?")) return;
+
   localStorage.clear();
-  sessions=[];tasks=[];moodHistory=[];nextSId=1;nextTId=1;pomCount=0;
+
+  sessions=[];
+  tasks=[];
+  moodHistory=[];
+  askaiHistory=[];
+  nextSId=1;
+  nextTId=1;
+  pomCount=0;
+  currentMood="focused";
+
   document.getElementById("pomCount").textContent=0;
-  renderSessions();renderProgress();renderTasks();
+
+  renderSessions();
+  renderProgress();
+  renderTasks();
+  renderAskAIHistory();
+
+  document.getElementById("askaiResultCard").style.display="none";
+
   showToast("All data cleared");
 }
 
